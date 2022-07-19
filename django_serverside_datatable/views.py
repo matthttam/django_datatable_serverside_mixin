@@ -2,7 +2,7 @@ from django.views import View
 from django.http import JsonResponse
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import QuerySet
-from django_serverside_datatable import datatable
+from . import datatable
 
 
 class ServerSideDatatableView(View):
@@ -12,7 +12,8 @@ class ServerSideDatatableView(View):
 
     def get(self, request, *args, **kwargs):
         result = datatable.DataTablesServer(
-            request, self.columns, self.get_queryset()).output_result()
+            request, self.columns, self.get_queryset()
+        ).get_output_result()
         return JsonResponse(result, safe=False)
 
     def get_queryset(self):
@@ -32,9 +33,7 @@ class ServerSideDatatableView(View):
             raise ImproperlyConfigured(
                 "%(cls)s is missing a QuerySet. Define "
                 "%(cls)s.model, %(cls)s.queryset, or override "
-                "%(cls)s.get_queryset()." % {
-                    'cls': self.__class__.__name__
-                }
+                "%(cls)s.get_queryset()." % {"cls": self.__class__.__name__}
             )
 
         return queryset
