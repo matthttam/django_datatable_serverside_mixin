@@ -69,11 +69,8 @@ class DataTablesServer(object):
         self.request_dict: dict = parser.parse(request.GET.urlencode())
         # Get column names from request
         self.columns = columns
-
+        # breakpoint()
         # Used for formatting the output data and name to id lookups
-        # self.column_lookup: list = [
-        #    v.get("data") or i for i, v in self.request_dict["columns"].items()
-        # ]
         self.column_lookup = {}
         for i, v in self.request_dict["columns"].items():
             self.column_lookup[v.get("data") or i] = i
@@ -85,7 +82,8 @@ class DataTablesServer(object):
         # Set pagination variables.
         # Use defaults for when the endpoint is used directly without get variables
         self.start = int(self.request_dict.get("start", "1"))
-        self.end = self.start + int(self.request_dict.get("length", "10"))
+        self.length = int(self.request_dict.get("length", "10"))
+        self.end = self.start + self.length
 
         # Execute queries based on request
         self.run_queries()
@@ -110,25 +108,23 @@ class DataTablesServer(object):
 
     def run_queries(self):
         filter_query = self.get_filter_query()
-        # the term you entered into the datatable search
-        # _filter = self.filtering()
         # the document field you chose to sort
         # sorting = self.sorting()
-        # custom filter
-
-        # data = list(data[self.start : self.end].values(*self.columns))
-
-        # Execute unfiltered query
 
         # Set records_total before filtering
         self.records_total = len(self.qs)
+        # Filter
         if filter_query:
             self.qs = self.qs.filter(filter_query)
         # self.qs = self.qs.order_by("%s" % sorting).values(*self.columns)
         # length of filtered set
         self.records_filtered = len(self.qs)
+        order_list = self.get_order_list()
+        if order_list:
+            self.qs = self.qs.order_by(*order_list)
+        self.db_data = list(self.qs.values(*self.columns)[self.start : self.end])
 
-        self.db_data = list(self.qs.values(*self.columns))
+        # breakpoint()
 
     def get_filter_query(self) -> Q:
         # TODO: Implement column search
@@ -166,36 +162,24 @@ class DataTablesServer(object):
 
         return q
 
-    def sorting(self):
+    def get_order_list(self):
+        order_list = []
+        # Sample order_by: {0: {'column': '0','dir': 'asc'}, {2: {'column': '0','dir': 'asc'}
+        for order_request in self.request_dict["order"].values():
 
-        order = ""
-        if (self.request_dict["iSortCol_0"] != "") and (
-            int(self.request_dict["iSortingCols"]) > 0
-        ):
+            # Lookup the field by the provided column index. Skip if cannot be found.
+            field_info = self.request_dict["columns"].get(
+                int(order_request.get("column")), None
+            )
+            if field_info is None:
+                continue
 
-            for i in range(int(self.request_dict["iSortingCols"])):
-                # column number
-                column_number = int(self.request_dict["iSortCol_" + str(i)])
-                # sort direction
-                sort_direction = self.request_dict["sSortDir_" + str(i)]
+            # If field is not orderable skip
+            if field_info.get("orderable") == "false":
+                continue
 
-                order = (
-                    ("" if order == "" else ",")
-                    + order_dict[sort_direction]
-                    + self.columns[column_number]
-                )
-
-        return order
-
-
-#   def get_pagination_information(self, request_dict: dict):
-#
-#       pages = namedtuple("pages", ["start", "length", "end"])
-#       # breakpoint()
-#       pages.start = request_dict.get("start", 0)
-#       pages.length = request_dict.get("length", 10)
-#       pages.end
-#
-#
-#       return pages
-#
+            # Add this order to list using - if dir is desc
+            order_list.append(
+                f"{'-' if order_request.get('dir') == 'desc' else ''}{field_info['data']}"
+            )
+        return order_list
