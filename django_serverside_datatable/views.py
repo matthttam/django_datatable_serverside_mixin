@@ -5,7 +5,7 @@ from django.db.models import QuerySet
 from . import datatable
 
 
-class ServerSideDatatableView(View):
+class ServerSideDatatableMixin(View):
     queryset = None
     columns = None
     model = None
