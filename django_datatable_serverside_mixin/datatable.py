@@ -12,13 +12,12 @@ class DataTablesServer(object):
         self.request_dict: dict = parser.parse(request.GET.urlencode())
         # Get column names from request
         self.columns = columns
-        # Used for formatting the output data and name to id lookups
-        self.column_index_lookup_by_name = {}
 
-        # TODO: Implement columnDefs
+        self.column_index_lookup_by_name = {}
         for i, v in self.request_dict["columns"].items():
             self.column_index_lookup_by_name[v.get("name") or i] = i
 
+        # Used for aliasing the data
         self.column_data_lookup_by_name = {}
         for i, v in self.request_dict["columns"].items():
             self.column_data_lookup_by_name[v.get("name") or i] = v.get("data")
@@ -51,7 +50,7 @@ class DataTablesServer(object):
         # Set records_total before filtering
         self.records_total = len(self.qs)
 
-        # Filter
+        # Apply Filter
         # Retrieve the filter query
         filter_query = self.get_filter_query()
         if filter_query is not None:
@@ -61,7 +60,7 @@ class DataTablesServer(object):
         # set records_filtered now that we have filtered
         self.records_filtered = len(self.qs)
 
-        # Apply ordering
+        # Apply Order
         order_list = self.get_order_list()
         if order_list:
             self.qs = self.qs.order_by(*order_list)

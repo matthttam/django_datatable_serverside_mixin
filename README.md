@@ -1,26 +1,27 @@
 # Django Serverside Datatable
-[![Downloads](https://pepy.tech/badge/django-serverside-datatable)](https://pepy.tech/project/django-serverside-datatable)
 
-This is a simple package that let you use Server-side Datatable in your Django Project
+This is a fork of Umesh Krishna's django-serverside-datable which was written for an older version of datatables. This updated version has been rewritten. Thanks to Umesh for the foundation to start from.
 
-Supports datatable features such as Pagination, Search, etc...
+This is a  package that let you use views with DataTables.net server-side processing in your Django Project.
+
+Supports datatable features such as Pagination, Search, filtering, etc...
 
 ## Install
 
 ```
-pip install django-serverside-datatable
+pip install django-datatable-serverside-mixin
 ```
 
 
 ## How to use
 
-Create a django View that inherits from  **ServerSideDatatableView**.
+Create a django View that inherits from  **ServerSideDatatableMixin**.
 Example (backend):
 
 ```python
 # views.py
 
-from django_serverside_datatable.views import ServerSideDatatableView
+from django_serverside_datatable_mixin.views import ServerSideDatatableView
 
 
 class ItemListView(ServerSideDatatableView):
@@ -42,7 +43,10 @@ Example (frontend):
 <html>
 	<head>
 		<meta charset="utf-8">
-		<link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css">
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.12.1/css/jquery.dataTables.min.css"/>
+ 
+	<script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	<script type="text/javascript" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
 	</head>
 	<body>
 		<h1>Items</h1>
@@ -76,5 +80,12 @@ Example (frontend):
 	</body>
 </html>
 ```
+The dataTables `columns` option must be set in the dataTable initialization. Each column is `required` to have a name coresponding to the views `columns` array. Data can optionally be set to the same field values to add readable keys to the json responses.
 
 For further customization of Datatable, you may refer the Datatable official documentation.
+
+#
+## To Do:
+- Implement global REGEX filtering
+- Implement per column filtering
+- Implement per column regex filtering
