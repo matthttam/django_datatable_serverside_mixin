@@ -21,10 +21,10 @@ Example (backend):
 ```python
 # views.py
 
-from django_serverside_datatable_mixin.views import ServerSideDatatableView
+from django_serverside_datatable_mixin.views import ServerSideDatatableMixin
 
 
-class ItemListView(ServerSideDatatableView):
+class ItemListView(ServerSideDatatableMixin):
 	queryset = models.Item.objects.all()
 	columns = ['name', 'code', 'description']
 
