@@ -89,3 +89,4 @@ For further customization of Datatable, you may refer the Datatable official doc
 - Implement global REGEX filtering
 - Implement per column filtering
 - Implement per column regex filtering
+- Write tests
