@@ -77,6 +77,8 @@ class DataTablesServer(object):
         self.qs = self.qs.values(*select_columns)
 
         # perform pagination using splice
+        if self.length == -1:
+            return list(self.qs)
         return list(self.qs[self.start : self.end])
 
     def get_filter_query(self) -> Q:

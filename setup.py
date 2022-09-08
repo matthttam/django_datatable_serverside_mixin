@@ -13,7 +13,7 @@ setuptools.setup(
     license="MIT",
     author="Matt Henry",
     author_email="matt.henry8411@gmail.com",
-    install_requires=["Django>=1.8", "querystring-parser>=1.2.4"],
+    install_requires=["Django>=3.0", "querystring-parser>=1.2.4"],
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
