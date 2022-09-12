@@ -7,12 +7,11 @@ from django.http import JsonResponse
 from django.http.request import HttpRequest
 from django_datatable_serverside_mixin.datatable import DataTablesServer
 from django_datatable_serverside_mixin.views import ServerSideDatatableMixin
+from django.conf import settings
+
+from .fixtures import *
 
 sample_data = [{"id": "1", "data": "data"}, {"id": "2", "data": "data"}]
-mock_queryset = MagicMock(spec_set=QuerySet, **{"all.return_value": sample_data})
-mock_model = MagicMock(
-    autospec=Model, create=True, **{"_default_manager.all.return_value": sample_data}
-)
 
 
 class MisconfiguredView(ServerSideDatatableMixin):
@@ -21,19 +20,14 @@ class MisconfiguredView(ServerSideDatatableMixin):
     """
 
 
-class IterableView(ServerSideDatatableMixin):
-    columns = ["id", "data"]
-    queryset = sample_data
-
-
 class QuerySetView(ServerSideDatatableMixin):
     columns = ["id", "data"]
-    queryset = mock_queryset
+    queryset = get_mock_queryset({"all.return_value": sample_data})
 
 
 class ModelView(ServerSideDatatableMixin):
     columns = ["id", "data"]
-    model = mock_model
+    model = get_mock_model({"_default_manager.all.return_value": sample_data})
 
 
 class ServerSideDatatableMixinTestCase(unittest.TestCase):
@@ -46,11 +40,6 @@ class ServerSideDatatableMixinTestCase(unittest.TestCase):
         view = MisconfiguredView()
         with self.assertRaises(ImproperlyConfigured) as e:
             test = view.get_queryset()
-
-    def test_iterable(self):
-        view = IterableView()
-        test = view.get_queryset()
-        self.assertEqual(test, sample_data)
 
     def test_queryset(self):
         view = QuerySetView()
@@ -66,8 +55,9 @@ class ServerSideDatatableMixinTestCase(unittest.TestCase):
         self.assertEqual(test, sample_data)
 
     def test_get(self):
+        settings.configure()
         # Set up mocks
-        mock_request = MagicMock(spec=HttpRequest)
+        mock_request = get_mock_request()
         mock_DataTablesServer = MagicMock(
             spec=DataTablesServer, **{"get_output_result.return_value": sample_data}
         )
