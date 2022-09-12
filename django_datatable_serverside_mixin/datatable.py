@@ -1,6 +1,6 @@
 import operator
 from django.db.models import Q, F
-from functools import reduce
+from functools import reduce, cached_property
 from querystring_parser import parser
 
 
@@ -14,20 +14,20 @@ class DataTablesServer(object):
         # Parse the request into a multidemintional dictionary
         self.request_dict: dict = parser.parse(request.GET.urlencode())
 
-        # Used to lookup a column index number by provided name
-        self.column_index_lookup_by_name = {}
-        for i, v in self.request_dict["columns"].items():
-            self.column_index_lookup_by_name[v.get("name", i)] = i
-
-        # Used for aliasing the data
-        self.column_data_lookup_by_name = {}
-        for i, v in self.request_dict["columns"].items():
-            self.column_data_lookup_by_name[v.get("name", i)] = v.get("data")
-
         # Set pagination variables.
         # Use defaults for when the endpoint is used directly without get variables
         self.start = int(self.request_dict.get("start", "0"))
         self.length = int(self.request_dict.get("length", "10"))
+
+    @cached_property
+    def column_index_lookup_by_data(self):
+        column_index_lookup_by_data = {}
+        for i, v in self.request_dict["columns"].items():
+            column_index_lookup_by_data[v.get("data", i)] = i
+        return column_index_lookup_by_data
+
+    def get_column_index_by_data(self, data: str) -> int:
+        return self.column_index_lookup_by_data.get(data, None)
 
     def get_output_result(self) -> dict:
         return {
@@ -44,7 +44,8 @@ class DataTablesServer(object):
         # Apply Order
         self.order_queryset()
 
-        # Alias Queryset and Remove Extra Fields
+        # Select only the allowed collumns
+        self.select_queryset()
 
         # Apply Paginations
         self.paginate_queryset()
@@ -64,8 +65,9 @@ class DataTablesServer(object):
         q_list = []
         for column in self.columns:
             # Get column id from request based on provided column name
-            column_index = self.column_index_lookup_by_name.get(column, None)
-
+            # column_index = self.column_index_lookup_by_name.get(column, None)
+            # column_index = self.column_index_lookup_by_data.get(column, None)
+            column_index = self.get_column_index_by_data(column)
             # Only search against fields provided in the request
             if column_index is None:
                 continue
@@ -106,24 +108,13 @@ class DataTablesServer(object):
 
             # Appended hiphen is used for descending order
             order_list.append(
-                f"{'-' if order_request.get('dir') == 'desc' else ''}{field_info['name']}"
+                f"{'-' if order_request.get('dir') == 'desc' else ''}{field_info['data']}"
             )
         if len(order_list) > 0:
             self.queryset = self.queryset.order_by(*order_list)
 
-    def alias_queryset(self) -> None:
-        """
-        The data field for each column is technically optional. In these cases,
-        data will be set to the index of the column and the data returned must
-        annotate those index values with the columns based on the name.
-        """
-        select_columns = []
-        for column in self.columns:
-            data = self.column_data_lookup_by_name.get(column, column)
-            select_columns.append(data)
-            if data is not None and str(data) != column:
-                self.queryset = self.queryset.annotate(**{str(data): F(column)})
-        self.queryset = self.queryset.values(*select_columns)
+    def select_queryset(self):
+        self.queryset = self.queryset.values(*self.columns)
 
     def paginate_queryset(self) -> None:
         if self.length == -1:

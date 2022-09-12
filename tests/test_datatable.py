@@ -56,15 +56,15 @@ class DataTablesServerTestCase(unittest.TestCase):
         ]
         self.columns = self.dataset[0].keys()
         self.request_params = {
-            "draw": 1,
+            "draw": "1",
             "columns[0][data]": "id",
-            "columns[0][name]": "id",
+            "columns[0][name]": "name_of_id",
             "columns[0][searchable]": "true",
             "columns[0][orderable]": "true",
             "columns[0][search][value]": "",
             "columns[0][search][regex]": "false",
             "columns[1][data]": "data",
-            "columns[1][name]": "data",
+            "columns[1][name]": "",
             "columns[1][searchable]": "true",
             "columns[1][orderable]": "true",
             "columns[1][search][value]": "",
@@ -89,8 +89,8 @@ class DataTablesServerTestCase(unittest.TestCase):
             "columns[4][search][regex]": "false",
             "order[0][column]": 0,
             "order[0][dir]": "asc",
-            "start": 0,
-            "length": 10,
+            "start": "0",
+            "length": "10",
             "search[value]": "",
             "search[regex]": "false",
         }
@@ -338,3 +338,94 @@ class DataTablesServerTestCase(unittest.TestCase):
             mock_paginated_queryset,
             msg="Paginated queryset not assigned to self.queryset!",
         )
+
+    def test_select_queryset(self):
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_select_queryset = Mock()
+        mock_queryset.values.return_value = mock_select_queryset
+
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+        datatable.select_queryset()
+
+        mock_queryset.values.assert_called_with(*datatable.columns)
+
+    def test_get_column_index_by_data(self):
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+        self.assertEqual(datatable.get_column_index_by_data("id"), 0)
+        self.assertEqual(datatable.get_column_index_by_data("data"), 1)
+        self.assertIsNone(datatable.get_column_index_by_data("blah123"))
+
+    @patch("django_datatable_serverside_mixin.datatable.parser")
+    def test_init(self, mock_parser):
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_parser.parse.return_value = {"test": "test"}
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+        self.assertEqual(datatable.start, 0)
+        self.assertEqual(datatable.length, 10)
+        self.assertEqual(datatable.columns, self.columns)
+        self.assertEqual(datatable.queryset, mock_queryset)
+        self.assertEqual(datatable.total_records, len(mock_queryset))
+        self.assertIsInstance(datatable.request_dict, dict)
+        mock_parser.parse.assert_called_with(urlencode(self.request_params))
+        self.assertEqual(datatable.request_dict, {"test": "test"})
+
+    @patch(
+        "django_datatable_serverside_mixin.datatable.DataTablesServer.paginate_queryset"
+    )
+    @patch(
+        "django_datatable_serverside_mixin.datatable.DataTablesServer.select_queryset"
+    )
+    @patch(
+        "django_datatable_serverside_mixin.datatable.DataTablesServer.order_queryset"
+    )
+    @patch(
+        "django_datatable_serverside_mixin.datatable.DataTablesServer.filter_queryset"
+    )
+    def test_get_db_data(
+        self,
+        mock_filter_queryset_function,
+        mock_order_queryset_function,
+        mock_select_queryset_function,
+        mock_paginate_queryset_function,
+    ):
+        """
+        Tests get_db_data  by ensuring each function is called
+        """
+        # Set filter to ensure the queryset is updated
+        self.request_params["search[value]"] = "2"
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        result_queryset = get_mock_queryset()
+        mock_paginate_queryset = get_mock_queryset(
+            {"__getitem__.return_value": result_queryset}
+        )
+        mock_select_queryset = get_mock_queryset(
+            {"values.return_value": mock_paginate_queryset}
+        )
+        mock_order_queryset = get_mock_queryset(
+            {"order_by.return_value": mock_select_queryset}
+        )
+        mock_filter_queryset = get_mock_queryset(
+            {"filter.return_value": mock_order_queryset}
+        )
+        datatable = DataTablesServer(mock_request, self.columns, mock_filter_queryset)
+        result = datatable.get_db_data()
+        mock_filter_queryset_function.assert_called_once()
+        mock_order_queryset_function.assert_called_once()
+        mock_select_queryset_function.assert_called_once()
+        mock_paginate_queryset_function.assert_called_once()
+        self.assertIsInstance(result, list)
+        self.assertEqual(datatable.queryset, result_queryset)
+        self.assertEqual(result, list(result_queryset))
