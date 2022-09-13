@@ -10,6 +10,7 @@ class DataTablesServer(object):
         self.columns = columns
         self.queryset = queryset
         self.total_records = len(self.queryset)
+        self.total_filtered_records = self.total_records
 
         # Parse the request into a multidemintional dictionary
         self.request_dict: dict = parser.parse(request.GET.urlencode())
@@ -30,16 +31,18 @@ class DataTablesServer(object):
         return self.column_index_lookup_by_data.get(data, None)
 
     def get_output_result(self) -> dict:
+        data = self.get_db_data()
         return {
             "draw": self.request_dict.get("draw"),
             "recordsTotal": self.total_records,
-            "recordsFiltered": len(self.queryset),
-            "data": self.get_db_data(),
+            "recordsFiltered": self.total_filtered_records,
+            "data": data,
         }
 
     def get_db_data(self) -> list[dict]:
         # Apply Filter
         self.filter_queryset()
+        self.total_filtered_records = len(self.queryset)
 
         # Apply Order
         self.order_queryset()
@@ -53,17 +56,10 @@ class DataTablesServer(object):
         return list(self.queryset)
 
     def filter_queryset(self) -> None:
-        # TODO: Implement column search
         q_filter = self.get_filter()
 
         if q_filter:
             self.queryset = self.queryset.filter(q_filter)
-
-        # columns_filter = self.get_columns_filter()
-
-    #
-    # if columns_filter:
-    #    self.queryset = self.queryset.filter(columns_filter)
 
     def get_filter(self):
         global_search_value = self.request_dict.get("search", {}).get("value", "")
