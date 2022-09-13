@@ -111,33 +111,16 @@ class DataTablesServerTestCase(unittest.TestCase):
             datatable.total_filtered_records = 1
             return DEFAULT
 
-        datatable.get_db_data = Mock(
+        mock_get_db_data = Mock(
             **{
                 "return_value": self.dataset,
                 "side_effect": update_total_filtered_records,
             }
         )
+        datatable.get_db_data = mock_get_db_data
         result = datatable.get_output_result()
-        self.assertEqual(
-            result,
-            {
-                "draw": "1",
-                "recordsTotal": 3,
-                "recordsFiltered": 1,
-                "data": self.dataset,
-            },
-        )
-        return
-        # Pretend the queryset started with a length of our dataset
-        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
-        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
-        mock_filter_queryset.__len__.return_value = 1
-        datatable.get_db_data = Mock(**{"return_value": self.dataset})
-        # Pretend the queryset was filtered to one result
-        # mock_queryset.__len__.return_value = 1
 
-        # Run and assert
-        result = datatable.get_output_result()
+        mock_get_db_data.assert_called_once()
         self.assertEqual(
             result,
             {
