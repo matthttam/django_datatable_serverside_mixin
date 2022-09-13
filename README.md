@@ -2,7 +2,7 @@
 
 This is a fork of Umesh Krishna's django-serverside-datable which was written for an older version of datatables. This updated version has been rewritten. Thanks to Umesh for the foundation to start from.
 
-This is a  package that let you use views with DataTables.net server-side processing in your Django Project.
+This is  package that lets you easily extend views to work with DataTables.net server-side processing in your Django Project.
 
 Supports datatable features such as Pagination, Search, filtering, etc...
 
@@ -24,15 +24,15 @@ Example (backend):
 from django_serverside_datatable_mixin.views import ServerSideDatatableMixin
 
 
-class ItemListView(ServerSideDatatableMixin):
-	queryset = models.Item.objects.all()
-	columns = ['name', 'code', 'description']
-
-
+class PersonListView(ServerSideDatatableMixin):
+	queryset = Person.objects.all()
+	columns = ['person_name', 'person_code', 'person_description','person__building__name']
+```
+```python
 # urls.py
-# add the following line to urlpatterns
+# add the following element to your urlpatterns array
 
-path('data/', views.ItemListView.as_view()), 
+path('data/', views.PersonListView.as_view()), 
 
 ```
 
@@ -49,14 +49,15 @@ Example (frontend):
 	<script type="text/javascript" src="https://cdn.datatables.net/1.12.1/js/jquery.dataTables.min.js"></script>
 	</head>
 	<body>
-		<h1>Items</h1>
+		<h1>People</h1>
 		<hr>
-		<table id="items-table">
+		<table id="people-table">
 			<thead>
 				<tr>
 					<th>Name</th>
 					<th>Code</th>
 					<th>Description</th>
+					<th>Building Name</th>
 				</tr>
 			</thead>
 			<tbody></tbody>
@@ -66,13 +67,14 @@ Example (frontend):
 		<script src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
 		<script language="javascript">
 			$(document).ready(function () {
-				$('#items-table').dataTable({
+				$('#people-table').dataTable({
 					serverSide: true,
 					sAjaxSource: "http://127.0.0.1:8000/data/",  // new url
                                         columns: [
-                                            {name: "name", data: 0},
-                                            {name: "code", data: 1},
-                                            {name: "description", data: 2},
+                                            {name: "name", data: "person_name"},
+                                            {name: "code", data: "person_code"},
+                                            {name: "description", data: "person_description"},
+											{name: "building", data: "person__building__name"},
                                         ],
 				});
 			});
@@ -80,13 +82,18 @@ Example (frontend):
 	</body>
 </html>
 ```
-The dataTables `columns` option must be set in the dataTable initialization. Each column is `required` to have a name coresponding to the views `columns` array. Data can optionally be set to the same field values to add readable keys to the json responses.
+The dataTables `columns` option must be configured in the dataTable initialization. Each column is `required` to have a `data` attribute coresponding to the view's `columns` array. Name is optional as of version 2.0.0 and is no longer used.
+
+The `data` attribute must corespond to a valid field provided by the view and must ultimately match an attribute on records in your queryset. Use annotations on your queryset if you prefer data values that don't look like "person__building__name."
+
+This is generally compatible with datatable features such as ColReorder and colvis.
 
 For further customization of Datatable, you may refer the Datatable official documentation.
 
-#
-## To Do:
-- Implement global REGEX filtering
-- Implement per column filtering
-- Implement per column regex filtering
-- Write tests
+# Updates
+## New in version 2.0.0:
+- Fixed a bug where using a -1 for the pagination length would not work as expected (now provides all records)
+- Implemented regex filtering
+- Implemented column based filtering
+- Wrote tests
+- Refactored all code to streamline the process and speed up queries

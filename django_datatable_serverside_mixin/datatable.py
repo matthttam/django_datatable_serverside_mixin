@@ -1,99 +1,82 @@
 import operator
 from django.db.models import Q, F
-from functools import reduce
+from functools import reduce, cached_property
 from querystring_parser import parser
 
 
 class DataTablesServer(object):
-    def __init__(self, request, columns, qs):
+    def __init__(self, request, columns, queryset):
+
+        self.columns = columns
+        self.queryset = queryset
+        self.total_records = len(self.queryset)
+        self.total_filtered_records = self.total_records
 
         # Parse the request into a multidemintional dictionary
-        # Serious thanks to https://github.com/bernii/querystring-parser
         self.request_dict: dict = parser.parse(request.GET.urlencode())
-        # Get column names from request
-        self.columns = columns
 
-        self.column_index_lookup_by_name = {}
-        for i, v in self.request_dict["columns"].items():
-            self.column_index_lookup_by_name[v.get("name") or i] = i
-
-        # Used for aliasing the data
-        self.column_data_lookup_by_name = {}
-        for i, v in self.request_dict["columns"].items():
-            self.column_data_lookup_by_name[v.get("name") or i] = v.get("data")
-
-        self.db_data = None
-        self.qs = qs
-        self.records_total = 0
-        self.records_filtered = 0
         # Set pagination variables.
         # Use defaults for when the endpoint is used directly without get variables
-        self.start = int(self.request_dict.get("start", "1"))
+        self.start = int(self.request_dict.get("start", "0"))
         self.length = int(self.request_dict.get("length", "10"))
-        self.end = self.start + self.length
 
-        # Execute queries based on request
-        self.db_data = self.get_db_data()
+    @cached_property
+    def column_index_lookup_by_data(self):
+        column_index_lookup_by_data = {}
+        for i, v in self.request_dict["columns"].items():
+            column_index_lookup_by_data[v.get("data", i)] = i
+        return column_index_lookup_by_data
 
-    def get_output_result(self):
-        output = {
+    def get_column_index_by_data(self, data: str) -> int:
+        return self.column_index_lookup_by_data.get(data, None)
+
+    def get_output_result(self) -> dict:
+        data = self.get_db_data()
+        return {
             "draw": self.request_dict.get("draw"),
-            "recordsTotal": self.records_total,
-            "recordsFiltered": self.records_filtered,
-            "data": list(self.db_data),
+            "recordsTotal": self.total_records,
+            "recordsFiltered": self.total_filtered_records,
+            "data": data,
         }
 
-        return output
-
     def get_db_data(self) -> list[dict]:
-
-        # Set records_total before filtering
-        self.records_total = len(self.qs)
-
         # Apply Filter
-        # Retrieve the filter query
-        filter_query = self.get_filter_query()
-        if filter_query is not None:
-            # breakpoint()
-            self.qs = self.qs.filter(filter_query)
-
-        # set records_filtered now that we have filtered
-        self.records_filtered = len(self.qs)
+        self.filter_queryset()
+        self.total_filtered_records = len(self.queryset)
 
         # Apply Order
-        order_list = self.get_order_list()
-        if order_list:
-            self.qs = self.qs.order_by(*order_list)
+        self.order_queryset()
 
-        # Set aliases if the data field is not provided (e.g. 1,2,3 etc)
-        # Populate select_columns to filter to only the columns provided
-        # in the view itself or transpose those to the index
-        select_columns = []
-        for column in self.columns:
-            data = self.column_data_lookup_by_name.get(column, column)
-            select_columns.append(data)
-            if data is not None and str(data) != column:
-                self.qs = self.qs.annotate(**{str(data): F(column)})
-        self.qs = self.qs.values(*select_columns)
+        # Select only the allowed collumns
+        self.select_queryset()
 
-        # perform pagination using splice
-        return list(self.qs[self.start : self.end])
+        # Apply Paginations
+        self.paginate_queryset()
 
-    def get_filter_query(self) -> Q:
-        # TODO: Implement column search
-        # TODO: Implement search[regex] = True
-        # Global Search
-        search_value = self.request_dict.get("search", {}).get("value", "")
+        return list(self.queryset)
 
-        if not search_value:
-            return None
+    def filter_queryset(self) -> None:
+        q_filter = self.get_filter()
 
+        if q_filter:
+            self.queryset = self.queryset.filter(q_filter)
+
+    def get_filter(self):
+        global_search_value = self.request_dict.get("search", {}).get("value", "")
+        global_search_regex = (
+            self.request_dict.get("search", {}).get("regex", False) == "true"
+        )
+
+        # if global_search_value == "":
+        #    return
+
+        global_lookup_type = "icontains" if not global_search_regex else "iregex"
         # Loop over designated columns and build query list
-        q_list = []
+        global_filter_list = []
+        column_filter_list = []
         for column in self.columns:
             # Get column id from request based on provided column name
-            column_index = self.column_index_lookup_by_name.get(column, None)
-
+            column_index = self.get_column_index_by_data(column)
             # Only search against fields provided in the request
             if column_index is None:
                 continue
@@ -103,22 +86,45 @@ class DataTablesServer(object):
             if field_info.get("searchable") == "false":
                 continue
 
-            # Build a query for it and append to the q_list
-            q_list.append(Q(**{f"{column}__icontains": search_value}))
+            # Build the global query
+            if global_search_value:
+                global_filter_list.append(
+                    Q(**{f"{column}__{global_lookup_type}": global_search_value})
+                )
 
+            # Get column values
+            column_search_value = field_info.get("search", {}).get("value", "")
+            column_search_regex = (
+                field_info.get("search", {}).get("regex", False) == "true"
+            )
+            column_lookup_type = "icontains" if not column_search_regex else "iregex"
+
+            # Build the column query
+            if column_search_value:
+                column_filter_list.append(
+                    Q(**{f"{column}__{column_lookup_type}": column_search_value})
+                )
+
+        q_filter = []
         # If q_list is empty return None
-        if len(q_list) == 0:
-            return None
+        if len(global_filter_list) != 0:
+            global_filter = reduce(operator.or_, global_filter_list)
+            q_filter.append(global_filter)
+
+        if len(column_filter_list) != 0:
+            column_filter = reduce(operator.and_, column_filter_list)
+            q_filter.append(column_filter)
 
         # Build global OR search using reduce
-        q = reduce(operator.or_, q_list)
+        if len(q_filter) != 0:
+            return reduce(operator.and_, q_filter)
 
-        return q
+    def order_queryset(self) -> None:
+        order_value = self.request_dict["order"].values()
 
-    def get_order_list(self) -> list:
         order_list = []
         # Sample order_by: {0: {'column': '0','dir': 'asc'}, {2: {'column': '0','dir': 'asc'}
-        for order_request in self.request_dict["order"].values():
+        for order_request in order_value:
 
             # Lookup the field by the provided column index. Skip if cannot be found.
             field_info = self.request_dict.get("columns").get(
@@ -131,8 +137,18 @@ class DataTablesServer(object):
             if field_info.get("orderable") == "false":
                 continue
 
-            # Add this order to list using - if dir is desc
+            # Appended hiphen is used for descending order
             order_list.append(
-                f"{'-' if order_request.get('dir') == 'desc' else ''}{field_info['name']}"
+                f"{'-' if order_request.get('dir') == 'desc' else ''}{field_info['data']}"
             )
-        return order_list
+        if len(order_list) > 0:
+            self.queryset = self.queryset.order_by(*order_list)
+
+    def select_queryset(self):
+        self.queryset = self.queryset.values(*self.columns)
+
+    def paginate_queryset(self) -> None:
+        if self.length == -1:
+            return
+
+        self.queryset = self.queryset[self.start : self.start + self.length]
