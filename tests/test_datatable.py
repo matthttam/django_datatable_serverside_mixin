@@ -2,7 +2,7 @@ from collections import namedtuple
 import unittest
 import operator
 from parameterized import parameterized
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, patch, Mock, DEFAULT
 from .fixtures import *
 from django.utils.http import urlencode
 from django_datatable_serverside_mixin.datatable import DataTablesServer
@@ -23,20 +23,6 @@ filter_no_value = filter_value_combinations.pop(0)
 
 
 class DataTablesServerTestCase(unittest.TestCase):
-    def apply_global_filter(self, filter_value) -> dict:
-        filtered_dataset = list()
-        for d in self.dataset:
-            filters = list()
-            for column in self.columns:
-                filters.append(filter_value in d[column].lower())
-            if reduce(operator.or_, filters):
-                filtered_dataset.append(d)
-
-        return filtered_dataset
-
-        # [d for d in self.dataset if  ]
-        return filtered_dataset
-
     def setUp(self) -> None:
         self.maxDiff = None
         self.dataset = [
@@ -111,16 +97,44 @@ class DataTablesServerTestCase(unittest.TestCase):
             self.request_params[f"columns[{i}][search][value]"] = search_param.value
             self.request_params[f"columns[{i}][search][regex]"] = search_param.regex
 
-    def test_get_output_result(self):
+    @patch(
+        "django_datatable_serverside_mixin.datatable.DataTablesServer.filter_queryset"
+    )
+    def test_get_output_result(self, mock_filter_queryset):
         mock_request = get_mock_request(
             {"GET.urlencode.return_value": urlencode(self.request_params)}
         )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        def update_total_filtered_records():
+            datatable.total_filtered_records = 1
+            return DEFAULT
+
+        datatable.get_db_data = Mock(
+            **{
+                "return_value": self.dataset,
+                "side_effect": update_total_filtered_records,
+            }
+        )
+        result = datatable.get_output_result()
+        self.assertEqual(
+            result,
+            {
+                "draw": "1",
+                "recordsTotal": 3,
+                "recordsFiltered": 1,
+                "data": self.dataset,
+            },
+        )
+        return
         # Pretend the queryset started with a length of our dataset
         mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
         datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+        mock_filter_queryset.__len__.return_value = 1
         datatable.get_db_data = Mock(**{"return_value": self.dataset})
         # Pretend the queryset was filtered to one result
-        mock_queryset.__len__.return_value = 1
+        # mock_queryset.__len__.return_value = 1
 
         # Run and assert
         result = datatable.get_output_result()
