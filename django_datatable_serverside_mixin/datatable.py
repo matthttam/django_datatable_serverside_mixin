@@ -54,19 +54,32 @@ class DataTablesServer(object):
 
     def filter_queryset(self) -> None:
         # TODO: Implement column search
-        # TODO: Implement search[regex] = True
-        # Global Search
-        search_value = self.request_dict.get("search", {}).get("value", "")
+        q_filter = self.get_filter()
 
-        if search_value == "":
-            return
+        if q_filter:
+            self.queryset = self.queryset.filter(q_filter)
 
+        # columns_filter = self.get_columns_filter()
+
+    #
+    # if columns_filter:
+    #    self.queryset = self.queryset.filter(columns_filter)
+
+    def get_filter(self):
+        global_search_value = self.request_dict.get("search", {}).get("value", "")
+        global_search_regex = (
+            self.request_dict.get("search", {}).get("regex", False) == "true"
+        )
+
+        # if global_search_value == "":
+        #    return
+
+        global_lookup_type = "icontains" if not global_search_regex else "iregex"
         # Loop over designated columns and build query list
-        q_list = []
+        global_filter_list = []
+        column_filter_list = []
         for column in self.columns:
             # Get column id from request based on provided column name
-            # column_index = self.column_index_lookup_by_name.get(column, None)
-            # column_index = self.column_index_lookup_by_data.get(column, None)
             column_index = self.get_column_index_by_data(column)
             # Only search against fields provided in the request
             if column_index is None:
@@ -77,16 +90,38 @@ class DataTablesServer(object):
             if field_info.get("searchable") == "false":
                 continue
 
-            # Build a query for it and append to the q_list
-            q_list.append(Q(**{f"{column}__icontains": search_value}))
+            # Build the global query
+            if global_search_value:
+                global_filter_list.append(
+                    Q(**{f"{column}__{global_lookup_type}": global_search_value})
+                )
 
+            # Get column values
+            column_search_value = field_info.get("search", {}).get("value", "")
+            column_search_regex = (
+                field_info.get("search", {}).get("regex", False) == "true"
+            )
+            column_lookup_type = "icontains" if not column_search_regex else "iregex"
+
+            # Build the column query
+            if column_search_value:
+                column_filter_list.append(
+                    Q(**{f"{column}__{column_lookup_type}": column_search_value})
+                )
+
+        q_filter = []
         # If q_list is empty return None
-        if len(q_list) == 0:
-            return
+        if len(global_filter_list) != 0:
+            global_filter = reduce(operator.or_, global_filter_list)
+            q_filter.append(global_filter)
+
+        if len(column_filter_list) != 0:
+            column_filter = reduce(operator.and_, column_filter_list)
+            q_filter.append(column_filter)
 
         # Build global OR search using reduce
-        q = reduce(operator.or_, q_list)
-        self.queryset = self.queryset.filter(q)
+        if len(q_filter) != 0:
+            return reduce(operator.and_, q_filter)
 
     def order_queryset(self) -> None:
         order_value = self.request_dict["order"].values()

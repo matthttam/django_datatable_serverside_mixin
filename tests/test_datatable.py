@@ -1,3 +1,4 @@
+from collections import namedtuple
 import unittest
 import operator
 from parameterized import parameterized
@@ -7,11 +8,18 @@ from django.utils.http import urlencode
 from django_datatable_serverside_mixin.datatable import DataTablesServer
 from django.db.models import Q, F
 from functools import reduce
+from itertools import combinations, product, chain
 
-# sample_data = "draw=1&columns%5B0%5D%5Bdata%5D=id&columns%5B0%5D%5Bname%5D=id&columns%5B0%5D%5Bsearchable%5D=true&columns%5B0%5D%5Borderable%5D=true&columns%5B0%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B0%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B1%5D%5Bdata%5D=person__internal_id&columns%5B1%5D%5Bname%5D=person__internal_id&columns%5B1%5D%5Bsearchable%5D=true&columns%5B1%5D%5Borderable%5D=true&columns%5B1%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B1%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B2%5D%5Bdata%5D=person_name&columns%5B2%5D%5Bname%5D=person_name&columns%5B2%5D%5Bsearchable%5D=true&columns%5B2%5D%5Borderable%5D=true&columns%5B2%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B2%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B3%5D%5Bdata%5D=person__first_name&columns%5B3%5D%5Bname%5D=person__first_name&columns%5B3%5D%5Bsearchable%5D=true&columns%5B3%5D%5Borderable%5D=true&columns%5B3%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B3%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B4%5D%5Bdata%5D=person__last_name&columns%5B4%5D%5Bname%5D=person__last_name&columns%5B4%5D%5Bsearchable%5D=true&columns%5B4%5D%5Borderable%5D=true&columns%5B4%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B4%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B5%5D%5Bdata%5D=person__type__name&columns%5B5%5D%5Bname%5D=person__type__name&columns%5B5%5D%5Bsearchable%5D=true&columns%5B5%5D%5Borderable%5D=true&columns%5B5%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B5%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B6%5D%5Bdata%5D=device_str&columns%5B6%5D%5Bname%5D=device_str&columns%5B6%5D%5Bsearchable%5D=true&columns%5B6%5D%5Borderable%5D=true&columns%5B6%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B6%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B7%5D%5Bdata%5D=device__asset_id&columns%5B7%5D%5Bname%5D=device__asset_id&columns%5B7%5D%5Bsearchable%5D=true&columns%5B7%5D%5Borderable%5D=true&columns%5B7%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B7%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B8%5D%5Bdata%5D=device__serial_number&columns%5B8%5D%5Bname%5D=device__serial_number&columns%5B8%5D%5Bsearchable%5D=true&columns%5B8%5D%5Borderable%5D=true&columns%5B8%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B8%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B9%5D%5Bdata%5D=device__device_model__name&columns%5B9%5D%5Bname%5D=device__device_model__name&columns%5B9%5D%5Bsearchable%5D=true&columns%5B9%5D%5Borderable%5D=true&columns%5B9%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B9%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B10%5D%5Bdata%5D=assignment_datetime&columns%5B10%5D%5Bname%5D=assignment_datetime&columns%5B10%5D%5Bsearchable%5D=true&columns%5B10%5D%5Borderable%5D=true&columns%5B10%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B10%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B11%5D%5Bdata%5D=return_datetime&columns%5B11%5D%5Bname%5D=return_datetime&columns%5B11%5D%5Bsearchable%5D=true&columns%5B11%5D%5Borderable%5D=true&columns%5B11%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B11%5D%5Bsearch%5D%5Bregex%5D=false&columns%5B12%5D%5Bdata%5D=id&columns%5B12%5D%5Bname%5D=actions&columns%5B12%5D%5Bsearchable%5D=true&columns%5B12%5D%5Borderable%5D=false&columns%5B12%5D%5Bsearch%5D%5Bvalue%5D=&columns%5B12%5D%5Bsearch%5D%5Bregex%5D=false&order%5B0%5D%5Bcolumn%5D=0&order%5B0%5D%5Bdir%5D=asc&start=0&length=10&search%5Bvalue%5D=&search%5Bregex%5D=false&_=1662747552725"
+# column_combinations = list(product(["", "test"], ["true", "false"]))
 
-
-# mock_queryset = get_mock_queryset({"all.return_value": self.sample_data})
+# define all combinations of searches
+SearchParam = namedtuple("SearchParam", ["value", "regex"])
+filter_value_combination = [
+    SearchParam(*i) for i in list(product(["", "!@#QWERTY123"], ["false"]))
+]
+filter_value_combinations = list(product(*[filter_value_combination] * 6))
+# Remove the first entry which has no search value for any field
+filter_no_value = filter_value_combinations.pop(0)
 
 
 class DataTablesServerTestCase(unittest.TestCase):
@@ -95,6 +103,14 @@ class DataTablesServerTestCase(unittest.TestCase):
             "search[regex]": "false",
         }
 
+    def set_search_params(self, search_params: list[SearchParam]) -> None:
+        global_filter = search_params.pop(0)
+        self.request_params["search[value]"] = global_filter.value
+        self.request_params["search[regex]"] = global_filter.regex
+        for i, search_param in enumerate(search_params):
+            self.request_params[f"columns[{i}][search][value]"] = search_param.value
+            self.request_params[f"columns[{i}][search][regex]"] = search_param.regex
+
     def test_get_output_result(self):
         mock_request = get_mock_request(
             {"GET.urlencode.return_value": urlencode(self.request_params)}
@@ -161,7 +177,35 @@ class DataTablesServerTestCase(unittest.TestCase):
             | Q(internal_id__icontains=filter_value)
         )
         mock_queryset.filter.assert_called_once_with(correct_filter)
-        self.assertCountEqual(
+        self.assertEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset not assigned to self.queryset!",
+        )
+
+    def test_global_filter_with_regex(self):
+        filter_value = ".*"
+        self.request_params["search[value]"] = filter_value
+        self.request_params["search[regex]"] = "true"
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+
+        correct_filter = (
+            Q(id__iregex=rf"{filter_value}")
+            | Q(data__iregex=rf"{filter_value}")
+            | Q(first_name__iregex=rf"{filter_value}")
+            | Q(last_name__iregex=rf"{filter_value}")
+            | Q(internal_id__iregex=rf"{filter_value}")
+        )
+        mock_queryset.filter.assert_called_once_with(correct_filter)
+        self.assertEqual(
             mock_filtered_queryset,
             datatable.queryset,
             msg="Filtered queryset not assigned to self.queryset!",
@@ -221,6 +265,148 @@ class DataTablesServerTestCase(unittest.TestCase):
         datatable.filter_queryset()
         mock_queryset.filter.assert_not_called()
         self.assertNotEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset incorrectly assigned to self.queryset!",
+        )
+
+    def test_column_filter_with_no_value(self):
+        """
+        A blank value for the column searches should not trigger a filter at all
+        """
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+        mock_queryset.filter.assert_not_called()
+        self.assertNotEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset incorrectly assigned to self.queryset!",
+        )
+
+    def test_column_filter_with_value(self):
+        filter_value = "2"
+        self.request_params["columns[2][search][value]"] = "John"
+        self.request_params["columns[4][search][value]"] = filter_value
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+
+        correct_filter = Q(first_name__icontains="John") & Q(
+            internal_id__icontains=filter_value
+        )
+        mock_queryset.filter.assert_called_once_with(correct_filter)
+        self.assertCountEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset not assigned to self.queryset!",
+        )
+
+    def test_column_filter_with_regex(self):
+        filter_value = "2.*2"
+        self.request_params["columns[4][search][value]"] = filter_value
+        self.request_params["columns[4][search][regex]"] = "true"
+        self.request_params["columns[2][search][value]"] = "John"
+        self.request_params["columns[2][search][regex]"] = "false"
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+
+        correct_filter = Q(first_name__icontains="John") & Q(
+            internal_id__iregex=rf"{filter_value}"
+        )
+        mock_queryset.filter.assert_called_once_with(correct_filter)
+        self.assertCountEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset not assigned to self.queryset!",
+        )
+
+    def test_column_filter_searchable_false(self):
+        """
+        A column with searchable false should not be included in the global search
+        """
+        self.request_params["columns[4][search][value]"] = "1111"
+        self.request_params["columns[4][searchable]"] = "false"
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+
+        mock_queryset.filter.assert_not_called()
+        self.assertNotEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset not assigned to self.queryset!",
+        )
+
+    def test_column_filter_no_searchable_fields(self):
+        """
+        If all available fields are not searchable, global search shouldn't apply
+        any filters at all
+        """
+        filter_value = "test"
+        self.request_params["columns[0][search][value]"] = filter_value
+        self.request_params["columns[0][searchable]"] = "false"
+        self.request_params["columns[1][searchable]"] = "false"
+        self.request_params["columns[2][searchable]"] = "false"
+        self.request_params["columns[3][searchable]"] = "false"
+        self.request_params["columns[4][searchable]"] = "false"
+
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+
+        datatable.filter_queryset()
+        mock_queryset.filter.assert_not_called()
+        self.assertNotEqual(
+            mock_filtered_queryset,
+            datatable.queryset,
+            msg="Filtered queryset incorrectly assigned to self.queryset!",
+        )
+
+    @parameterized.expand(filter_value_combinations)
+    def test_filter_combination(self, *args):
+
+        self.set_search_params(list(args))
+
+        mock_request = get_mock_request(
+            {"GET.urlencode.return_value": urlencode(self.request_params)}
+        )
+        mock_queryset = get_mock_queryset({"__len__.return_value": len(self.dataset)})
+        mock_filtered_queryset = get_mock_queryset()
+        mock_queryset.filter.return_value = mock_filtered_queryset
+        datatable = DataTablesServer(mock_request, self.columns, mock_queryset)
+        datatable.filter_queryset()
+        mock_queryset.filter.assert_called_once()
+        self.assertEqual(
             mock_filtered_queryset,
             datatable.queryset,
             msg="Filtered queryset incorrectly assigned to self.queryset!",
