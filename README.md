@@ -6,6 +6,10 @@ This is  package that lets you easily extend views to work with DataTables.net s
 
 Supports datatable features such as Pagination, Search, filtering, etc...
 
+## Requirements
+- Pythin version 3.10+ (may work on older versions but is untested)
+- Django version 3.x or 4.x
+
 ## Install
 
 ```
@@ -16,6 +20,11 @@ pip install django-datatable-serverside-mixin
 ## How to use
 
 Create a django View that inherits from  **ServerSideDatatableMixin**.
+
+- `queryset` is required or you can override `get_queryset()`. When specifying a queryset be sure you include all related models as needed.
+For example, if you request related_thing__otherm_model__value you would .select_related("related_thing","related_thing__other_model"). Failing to retrieve the fields you need will result in an error especially when searching!
+- `columns` is required and is an array of strings specifying the fields that will be retrieved from the queryset. The view will only return fields listed in this columns array thus preventing anyone from fetching anything they want from your models.
+
 Example (backend):
 
 ```python
@@ -25,8 +34,9 @@ from django_serverside_datatable_mixin.views import ServerSideDatatableMixin
 
 
 class PersonListView(ServerSideDatatableMixin):
-	queryset = Person.objects.all()
-	columns = ['person_name', 'person_code', 'person_description','person__building__name']
+	# Be sure to use select_related to fetch fields of related models
+	queryset = Person.objects.all().select_related("building")
+	columns = ['name', 'code', 'description','building__name']
 ```
 ```python
 # urls.py
@@ -71,10 +81,10 @@ Example (frontend):
 					serverSide: true,
 					sAjaxSource: "http://127.0.0.1:8000/data/",  // new url
                                         columns: [
-                                            {name: "name", data: "person_name"},
-                                            {name: "code", data: "person_code"},
-                                            {name: "description", data: "person_description"},
-											{name: "building", data: "person__building__name"},
+                                            {name: "name", data: "name"},
+                                            {name: "code", data: "code"},
+                                            {name: "description", data: "description"},
+                                            {name: "building", data: "building__name"},
                                         ],
 				});
 			});
@@ -88,7 +98,7 @@ The `data` attribute must corespond to a valid field provided by the view and mu
 
 This is generally compatible with datatable features such as ColReorder and colvis.
 
-For further customization of Datatable, you may refer the Datatable official documentation.
+For further customization of Datatable, you may refer the [Datatables.net official documentation](https://datatables.net/manual/).
 
 # Updates
 ## New in version 2.0.0:
