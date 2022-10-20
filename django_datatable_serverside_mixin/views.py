@@ -11,10 +11,24 @@ class ServerSideDatatableMixin(View):
     model = None
 
     def get(self, request, *args, **kwargs):
-        result = datatable.DataTablesServer(
-            request, self.columns, self.get_queryset()
-        ).get_output_result()
+        DataTablesServer = datatable.DataTablesServer(
+            request,
+            self.columns,
+            self.get_queryset(),
+        )
+        result = DataTablesServer.get_output_result()
+        result["data"] = self.data_callback(result["data"])
+
         return JsonResponse(result, safe=False)
+
+    def data_callback(self, data: list[dict]) -> list[dict]:
+        """
+        Called on data attribute of result of DataTablesServer get_output_result.
+        Can be used to manipulate the final data rows.
+        Useful for adding additional fields or adding formatting
+        to the already filtered and sorted data.
+        """
+        return data
 
     def get_queryset(self):
         """
@@ -33,5 +47,3 @@ class ServerSideDatatableMixin(View):
             "%(cls)s.model, %(cls)s.queryset, or override "
             "%(cls)s.get_queryset()." % {"cls": self.__class__.__name__}
         )
-
-        return queryset

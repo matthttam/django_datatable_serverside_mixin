@@ -67,9 +67,6 @@ class DataTablesServer(object):
             self.request_dict.get("search", {}).get("regex", False) == "true"
         )
 
-        # if global_search_value == "":
-        #    return
-
         global_lookup_type = "icontains" if not global_search_regex else "iregex"
         # Loop over designated columns and build query list
         global_filter_list = []
