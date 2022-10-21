@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="django_datatable_serverside_mixin",
-    version="2.1.0",
+    version="2.1.1",
     description="Server-side DataTables processing view mixin for Django",
     long_description=long_description,
     long_description_content_type="text/markdown",
