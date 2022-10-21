@@ -1,10 +1,10 @@
-# Django Serverside Datatable
+# Django Serverside DataTables
 
-This is a fork of Umesh Krishna's django-serverside-datable which was written for an older version of datatables. This updated version has been rewritten. Thanks to Umesh for the foundation to start from.
+This is a fork of Umesh Krishna's django-serverside-datatable which was written for an older version of DataTables. This updated version has been rewritten. Thanks to Umesh for the foundation to start from.
 
 This is  package that lets you easily extend views to work with DataTables.net server-side processing in your Django Project.
 
-Supports datatable features such as Pagination, Search, filtering, etc...
+Supports DataTables features such as Pagination, Search, filtering, etc...
 
 ## Install
 
@@ -14,17 +14,17 @@ pip install django-datatable-serverside-mixin
 
 
 ## How to use
-
-Create a django View that inherits from  **ServerSideDatatableMixin**.
+### Basic Implementation
+Create a django View that inherits from  **ServerSideDataTablesMixin**.
 Example (backend):
 
 ```python
 # views.py
 
-from django_serverside_datatable_mixin.views import ServerSideDatatableMixin
+from django_serverside_datatable_mixin.views import ServerSideDataTablesMixin
 
 
-class PersonListView(ServerSideDatatableMixin):
+class PersonListView(ServerSideDataTablesMixin):
 	queryset = Person.objects.all()
 	columns = ['person_name', 'person_code', 'person_description','person__building__name']
 ```
@@ -82,15 +82,37 @@ Example (frontend):
 	</body>
 </html>
 ```
-The dataTables `columns` option must be configured in the dataTable initialization. Each column is `required` to have a `data` attribute coresponding to the view's `columns` array. Name is optional as of version 2.0.0 and is no longer used.
+The dataTables `columns` option must be configured in the dataTable initialization. Each column is `required` to have a `data` attribute corresponding to the view's `columns` array. Name is optional as of version 2.0.0 and is no longer used.
 
-The `data` attribute must corespond to a valid field provided by the view and must ultimately match an attribute on records in your queryset. Use annotations on your queryset if you prefer data values that don't look like "person__building__name."
+The `data` attribute must correspond to a valid field provided by the view and must ultimately match an attribute on records in your queryset. Use annotations on your queryset if you prefer data values that don't look like "person__building__name."
 
-This is generally compatible with datatable features such as ColReorder and colvis.
+This is generally compatible with DataTables features such as ColReorder and colvis.
 
-For further customization of Datatable, you may refer the Datatable official documentation.
+For further customization of DataTables, you may refer the DataTables official documentation.
+### Data Callback
+ServerSideDataTablesMixin provides a callback method named data_callback that can be overridden. Use this method to change the formatting or add/remove any pieces of data. This gives you full flexibility to render the data *after* everything has been sorted, filtered, paginated, etc...
 
+On example of its use is rendering buttons for each row based on the row's ID value.
+```python
+# Some imports and methods excluded for brevity
+from django.template.loader import render_to_string
+
+class PersonListView(ServerSideDataTablesMixin):
+	def data_callback(self, data: list[dict]) -> list[dict]:
+		for row in data:
+			row["actions"] = render_to_string(
+				"people/table_row_buttons.html",
+				context={"person": row},
+				request=self.request,
+			)
+			row["id"] = f"{<b>row['id']</b>"
+		return super().data_callback(data)
+```
+In the example above the data for the ID column would render with <b> tags to make it bold. The table_row_buttons.html template would render buttons based on the person object. This text is added to the `row["actions"]` attribute and the javascript would look for a column definition for `data: "actions"`.
 # Updates
+## New in version 2.1.0:
+- Renamed ServerSideDataTablesMixin to ServerSideDataTablesMixin. A deprecation warning will trigger if the old class name is used.
+- Added a data_callback method to ServerSideDataTablesMixin which can be used to manipulate the data just before rendering to JSON. Useful for adding HTML or modifying any data fields based on view context (like permissions).
 ## New in version 2.0.0:
 - Fixed a bug where using a -1 for the pagination length would not work as expected (now provides all records)
 - Implemented regex filtering
