@@ -4,6 +4,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db.models import QuerySet
 from . import datatable
 from warnings import warn
+from deprecated import deprecated
 
 
 class ServerSideDataTablesMixin(View):
@@ -50,10 +51,21 @@ class ServerSideDataTablesMixin(View):
         )
 
 
-class ServerSideDatatableMixin:
-    def __new__(cls):
+class ServerSideDatatableMixin(ServerSideDataTablesMixin):
+    def __init_subclass__(cls, **kwargs):
+        """This throws a deprecation warning on subclassing."""
         warn(
-            message="Class name ServerSideDatatableMixin has been deprecated. Please use ServerSideDataTablesMixin instead.",
-            category=DeprecationWarning,
+            f"{cls.__name__} inherits from ServerSideDatatableMixin which has been deprecated. Please use ServerSideDataTablesMixin instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        return ServerSideDataTablesMixin
+        super().__init_subclass__(**kwargs)
+
+    def __init__(self, *args, **kwargs):
+        """This throws a deprecation warning on initialization."""
+        warn(
+            f"{self.__class__.__name__} has been deprecated. Please use ServerSideDataTablesMixin instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)

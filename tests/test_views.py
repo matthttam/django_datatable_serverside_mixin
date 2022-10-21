@@ -124,11 +124,27 @@ class ServerSideDatatableMixinTestCase(unittest.TestCase):
         self.assertEqual(return_value, test_value)
 
     def test_ServerSideDatatableMixin_deprecation_warning(self):
-
         from django_datatable_serverside_mixin.views import ServerSideDatatableMixin
 
-        with self.assertWarns(expected_warning=DeprecationWarning):
+        with self.assertWarns(expected_warning=DeprecationWarning) as w:
             test = ServerSideDatatableMixin()
+        self.assertEqual(
+            "ServerSideDatatableMixin has been deprecated. Please use ServerSideDataTablesMixin instead.",
+            str(w.warning),
+        )
+
+    def test_ServerSideDatatableMixin_inheritance_deprecation_warning(self):
+        from django_datatable_serverside_mixin.views import ServerSideDatatableMixin
+
+        with self.assertWarns(expected_warning=DeprecationWarning) as w:
+
+            class MyNewView(ServerSideDatatableMixin):
+                pass
+
+        self.assertEqual(
+            "MyNewView inherits from ServerSideDatatableMixin which has been deprecated. Please use ServerSideDataTablesMixin instead.",
+            str(w.warning),
+        )
 
 
 #
