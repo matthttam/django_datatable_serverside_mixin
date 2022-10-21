@@ -114,6 +114,9 @@ class PersonListView(ServerSideDataTablesMixin):
 In the example above the data for the ID column would render with <b> tags to make it bold. The table_row_buttons.html template would render buttons based on the person object. This text is added to the `row["actions"]` attribute and the javascript would look for a column definition for `data: "actions"`.
 
 # Updates
+## New in version 2.1.1:
+- Fix deprecation issues where inheritance would not function as expected.
+- Fixed readme typos.
 ## New in version 2.1.0:
 - Renamed ServerSideDatatableMixin to ServerSideDataTablesMixin. A deprecation warning will trigger if the old class name is used.
 - Added a data_callback method to ServerSideDataTablesMixin which can be used to manipulate the data just before rendering to JSON. Useful for adding HTML or modifying any data fields based on view context (like permissions).
