@@ -3,9 +3,10 @@ from django.http import JsonResponse
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import QuerySet
 from . import datatable
+from warnings import warn
 
 
-class ServerSideDatatableMixin(View):
+class ServerSideDataTablesMixin(View):
     columns = None
     queryset = None
     model = None
@@ -23,7 +24,7 @@ class ServerSideDatatableMixin(View):
 
     def data_callback(self, data: list[dict]) -> list[dict]:
         """
-        Called on data attribute of result of DataTablesServer get_output_result.
+        Called on data attribute of result of DataTablesServer get_output_result method.
         Can be used to manipulate the final data rows.
         Useful for adding additional fields or adding formatting
         to the already filtered and sorted data.
@@ -47,3 +48,12 @@ class ServerSideDatatableMixin(View):
             "%(cls)s.model, %(cls)s.queryset, or override "
             "%(cls)s.get_queryset()." % {"cls": self.__class__.__name__}
         )
+
+
+class ServerSideDatatableMixin:
+    def __new__(cls):
+        warn(
+            message="Class name ServerSideDatatableMixin has been deprecated. Please use ServerSideDataTablesMixin instead.",
+            category=DeprecationWarning,
+        )
+        return ServerSideDataTablesMixin

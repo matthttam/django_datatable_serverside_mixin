@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.http.request import HttpRequest
 from django.views import View
 from django_datatable_serverside_mixin.datatable import DataTablesServer
-from django_datatable_serverside_mixin.views import ServerSideDatatableMixin
+from django_datatable_serverside_mixin.views import ServerSideDataTablesMixin
 
 from .fixtures import *
 
@@ -21,13 +21,13 @@ sample_return_value = {
 }
 
 
-class MisconfiguredView(ServerSideDatatableMixin):
+class MisconfiguredView(ServerSideDataTablesMixin):
     """
     A Misconfigured ServerSideDatatableMixin View
     """
 
 
-class QuerySetView(ServerSideDatatableMixin):
+class QuerySetView(ServerSideDataTablesMixin):
     columns = ["id", "data"]
     queryset = get_mock_queryset({"all.return_value": sample_data})
 
@@ -39,7 +39,7 @@ class DataCallbackView(QuerySetView):
         return data
 
 
-class ModelView(ServerSideDatatableMixin):
+class ModelView(ServerSideDataTablesMixin):
     columns = ["id", "data"]
     model = get_mock_model({"_default_manager.all.return_value": sample_data})
 
@@ -56,7 +56,7 @@ class ServerSideDatatableMixinTestCase(unittest.TestCase):
         )
 
     def test_inheritance(self):
-        self.assertIsInstance(ServerSideDatatableMixin(), View)
+        self.assertIsInstance(ServerSideDataTablesMixin(), View)
 
     def test_misconfiguration(self):
         view = MisconfiguredView()
@@ -122,3 +122,13 @@ class ServerSideDatatableMixinTestCase(unittest.TestCase):
         ]
         return_value = view.data_callback(test_value)
         self.assertEqual(return_value, test_value)
+
+    def test_ServerSideDatatableMixin_deprecation_warning(self):
+
+        from django_datatable_serverside_mixin.views import ServerSideDatatableMixin
+
+        with self.assertWarns(expected_warning=DeprecationWarning):
+            test = ServerSideDatatableMixin()
+
+
+#
