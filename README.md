@@ -115,7 +115,7 @@ In the example above the data for the ID column would render with <b> tags to ma
 
 # Updates
 ## New in version 2.1.0:
-- Renamed ServerSideDataTablesMixin to ServerSideDataTablesMixin. A deprecation warning will trigger if the old class name is used.
+- Renamed ServerSideDatatableMixin to ServerSideDataTablesMixin. A deprecation warning will trigger if the old class name is used.
 - Added a data_callback method to ServerSideDataTablesMixin which can be used to manipulate the data just before rendering to JSON. Useful for adding HTML or modifying any data fields based on view context (like permissions).
 ## New in version 2.0.0:
 - Fixed a bug where using a -1 for the pagination length would not work as expected (now provides all records)
