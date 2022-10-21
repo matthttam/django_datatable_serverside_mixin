@@ -6,6 +6,10 @@ This is  package that lets you easily extend views to work with DataTables.net s
 
 Supports DataTables features such as Pagination, Search, filtering, etc...
 
+## Requirements
+- Pythin version 3.10+ (may work on older versions but is untested)
+- Django version 3.x or 4.x
+
 ## Install
 
 ```
@@ -14,8 +18,8 @@ pip install django-datatable-serverside-mixin
 
 
 ## How to use
-### Basic Implementation
-Create a django View that inherits from  **ServerSideDataTablesMixin**.
+
+Create a django View that inherits from  **ServerSideDatatableMixin**.
 Example (backend):
 
 ```python
@@ -24,7 +28,7 @@ Example (backend):
 from django_serverside_datatable_mixin.views import ServerSideDataTablesMixin
 
 
-class PersonListView(ServerSideDataTablesMixin):
+class PersonListView(ServerSideDatatableMixin):
 	queryset = Person.objects.all()
 	columns = ['person_name', 'person_code', 'person_description','person__building__name']
 ```
@@ -71,10 +75,10 @@ Example (frontend):
 					serverSide: true,
 					sAjaxSource: "http://127.0.0.1:8000/data/",  // new url
                                         columns: [
-                                            {name: "name", data: "person_name"},
-                                            {name: "code", data: "person_code"},
-                                            {name: "description", data: "person_description"},
-											{name: "building", data: "person__building__name"},
+                                            {name: "name", data: "name"},
+                                            {name: "code", data: "code"},
+                                            {name: "description", data: "description"},
+                                            {name: "building", data: "building__name"},
                                         ],
 				});
 			});
@@ -88,15 +92,13 @@ The `data` attribute must correspond to a valid field provided by the view and m
 
 This is generally compatible with DataTables features such as ColReorder and colvis.
 
-For further customization of DataTables, you may refer the DataTables official documentation.
+For further customization of Datatable, you may refer the [Datatables.net official documentation](https://datatables.net/manual/).
+
 ### Data Callback
 ServerSideDataTablesMixin provides a callback method named data_callback that can be overridden. Use this method to change the formatting or add/remove any pieces of data. This gives you full flexibility to render the data *after* everything has been sorted, filtered, paginated, etc...
 
-On example of its use is rendering buttons for each row based on the row's ID value.
-```python
-# Some imports and methods excluded for brevity
-from django.template.loader import render_to_string
 
+```python
 class PersonListView(ServerSideDataTablesMixin):
 	def data_callback(self, data: list[dict]) -> list[dict]:
 		for row in data:
@@ -108,7 +110,9 @@ class PersonListView(ServerSideDataTablesMixin):
 			row["id"] = f"{<b>row['id']</b>"
 		return super().data_callback(data)
 ```
+
 In the example above the data for the ID column would render with <b> tags to make it bold. The table_row_buttons.html template would render buttons based on the person object. This text is added to the `row["actions"]` attribute and the javascript would look for a column definition for `data: "actions"`.
+
 # Updates
 ## New in version 2.1.0:
 - Renamed ServerSideDataTablesMixin to ServerSideDataTablesMixin. A deprecation warning will trigger if the old class name is used.
